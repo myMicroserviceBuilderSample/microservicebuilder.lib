@@ -196,7 +196,7 @@ def call(body) {
           
           container ('helm') {
             sh "/helm init --client-only --skip-refresh"
-            def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"
+            def deployCommand = "/helm install --tls ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"
             if (fileExists("chart/overrides.yaml")) {
               deployCommand += " --values chart/overrides.yaml"
             }
@@ -219,7 +219,7 @@ def call(body) {
                   sh "kubectl delete namespace ${testNamespace}"
                   if (fileExists(realChartFolder)) {
                     container ('helm') {
-                      sh "/helm delete ${tempHelmRelease} --purge"
+                      sh "/helm delete --tls ${tempHelmRelease} --purge"
                     }
                   }
                 }
@@ -242,7 +242,7 @@ def deployProject (String chartFolder, String registry, String image, String ima
   if (chartFolder != null && fileExists(chartFolder)) {
     container ('helm') {
       sh "/helm init --client-only --skip-refresh"
-      def deployCommand = "/helm upgrade --install --wait --values pipeline.yaml"
+      def deployCommand = "/helm upgrade --tls --install --wait --values pipeline.yaml"
       if (fileExists("chart/overrides.yaml")) {
         deployCommand += " --values chart/overrides.yaml"
       }
