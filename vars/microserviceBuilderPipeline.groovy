@@ -196,7 +196,7 @@ def call(body) {
           
           container ('helm') {
             sh "/helm init --client-only --skip-refresh"
-            def deployCommand = "/helm install --tls ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"
+            def deployCommand = "/helm install ${realChartFolder} --wait --tls --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"
             if (fileExists("chart/overrides.yaml")) {
               deployCommand += " --values chart/overrides.yaml"
             }
@@ -219,7 +219,8 @@ def call(body) {
                   sh "kubectl delete namespace ${testNamespace}"
                   if (fileExists(realChartFolder)) {
                     container ('helm') {
-                      sh "/helm delete --tls ${tempHelmRelease} --purge"
+                      sh "/helm delete 
+                      ${tempHelmRelease} --purge"
                     }
                   }
                 }
