@@ -220,7 +220,7 @@ def call(body) {
                   if (fileExists(realChartFolder)) {
                     container ('helm') {
                       sh "/helm delete 
-                      ${tempHelmRelease} --purge"
+                      ${tempHelmRelease} --tls --purge"
                     }
                   }
                 }
