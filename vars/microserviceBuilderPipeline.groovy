@@ -157,6 +157,9 @@ def call(body) {
                 sh "ln -s /msb_reg_sec/.dockercfg /home/jenkins/.dockercfg"
                 sh "mkdir /home/jenkins/.docker"
                 sh "ln -s /msb_reg_sec/.dockerconfigjson /home/jenkins/.docker/config.json"
+                sh "ls -al /home/jenkins/"
+                sh "ls -al /home/jenkins/.docker/"
+                sh "cat /home/jenkins/.docker/config.json"
               }
               sh buildCommand
               if (registry) {
