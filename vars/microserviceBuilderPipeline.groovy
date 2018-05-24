@@ -77,6 +77,10 @@ def call(body) {
   def mavenSettingsConfigMap = env.MAVEN_SETTINGS_CONFIG_MAP?.trim()
   def helmTlsOptions = " --tls --tls-ca-cert=/msb_helm_sec/ca.pem --tls-cert=/msb_helm_sec/cert.pem --tls-key=/msb_helm_sec/key.pem " 
 
+  //
+  def reguser = config.reguser
+  def regpw = config.regpw
+
   print "microserviceBuilderPipeline: registry=${registry} registrySecret=${registrySecret} build=${build} \
   deploy=${deploy} test=${test} debug=${debug} namespace=${namespace} \
   chartFolder=${chartFolder} manifestFolder=${manifestFolder} alwaysPullImage=${alwaysPullImage} serviceAccountName=${serviceAccountName}"
@@ -205,8 +209,13 @@ def call(body) {
               }
               sh buildCommand
               if (registry) {
+                //
+		sh "docker login mycluster.icp:8500 -u ${reguser} -p ${regpw}"
+		sh "cat /home/jenkins/.docker/config.json"
+		
                 sh "docker tag ${image}:${imageTag} ${registry}${image}:${imageTag}"
                 sh "docker push ${registry}${image}:${imageTag}"
+		      
               }
             }
           }
