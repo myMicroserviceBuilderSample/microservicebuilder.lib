@@ -210,7 +210,9 @@ def call(body) {
               sh buildCommand
               if (registry) {
                 //
-		sh "docker login mycluster.icp:8500 -u ${reguser} -p ${regpw}"
+		retry(5){
+		     sh "docker login mycluster.icp:8500 -u ${reguser} -p ${regpw}"
+		}
 		sh "cat /home/jenkins/.docker/config.json"
 		
                 sh "docker tag ${image}:${imageTag} ${registry}${image}:${imageTag}"
