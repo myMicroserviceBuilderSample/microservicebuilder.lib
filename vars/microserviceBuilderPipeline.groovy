@@ -73,6 +73,11 @@ def call(body) {
   def libertyLicenseJarName = config.libertyLicenseJarName ?: (System.getenv("LIBERTY_LICENSE_JAR_NAME") ?: "").trim()
   def alwaysPullImage = (System.getenv("ALWAYS_PULL_IMAGE") == null) ? true : System.getenv("ALWAYS_PULL_IMAGE").toBoolean()
   def mavenSettingsConfigMap = System.getenv("MAVEN_SETTINGS_CONFIG_MAP")?.trim() 
+  
+  //
+  def reguser = config.reguser
+  def regpw = config.regpw
+  
 
   print "microserviceBuilderPipeline: registry=${registry} registrySecret=${registrySecret} build=${build} \
   deploy=${deploy} deployBranch=${deployBranch} test=${test} debug=${debug} namespace=${namespace} \
@@ -163,6 +168,7 @@ def call(body) {
               }
               sh buildCommand
               if (registry) {
+                sh "docker login mycluster.icp:8500 -u ${reguser} -p ${regpw}"
                 sh "docker tag ${image}:${imageTag} ${registry}${image}:${imageTag}"
                 sh "docker push ${registry}${image}:${imageTag}"
               }
