@@ -214,7 +214,7 @@ def call(body) {
               if (registry) {
                 //
 		//retry(5){
-		     sh "docker login mycluster.icp:8500 -u ${reguser} -p ${regpw}"
+		     //sh "docker login mycluster.icp:8500 -u ${reguser} -p ${regpw}"
 		//}
 		//sh "cat /home/jenkins/.docker/config.json"
 		
