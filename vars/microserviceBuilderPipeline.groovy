@@ -219,7 +219,10 @@ def call(body) {
 		sh "cat /home/jenkins/.docker/config.json"
 		
                 sh "docker tag ${image}:${imageTag} ${registry}${image}:${imageTag}"
-                sh "docker push ${registry}${image}:${imageTag}"
+		      
+		retry(5){
+                     sh "docker push ${registry}${image}:${imageTag}"
+		}
 		      
               }
             }
