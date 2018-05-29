@@ -340,7 +340,9 @@ def initalizeHelm () {
 def deployProject (String chartFolder, String registry, String image, String imageTag, String namespace, String manifestFolder, String registrySecret, String helmSecret, String helmTlsOptions) {
   if (chartFolder != null && fileExists(chartFolder)) {
     container ('helm') {
-      def deployCommand = "helm upgrade --tiller-namespace tool --install --wait --values pipeline.yaml"
+      def deployCommand = "helm upgrade --install --wait --values pipeline.yaml"
+      //def deployCommand = "helm upgrade --tiller-namespace tool --install --wait --values pipeline.yaml"
+  	    
       if (fileExists("chart/overrides.yaml")) {
         deployCommand += " --values chart/overrides.yaml"
       }
