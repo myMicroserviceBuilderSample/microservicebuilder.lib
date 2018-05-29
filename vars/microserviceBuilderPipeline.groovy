@@ -7,17 +7,13 @@
   microserviceBuilderPipeline {
     image = 'microservice-test'
   }
-
   The following parameters may also be specified. Their defaults are shown below.
   These are the names of images to be downloaded from https://hub.docker.com/.
-
     mavenImage = 'maven:3.5.2-jdk-8'
     dockerImage = 'ibmcom/docker:17.10'
     kubectlImage = 'ibmcom/k8s-kubectl:v1.8.3'
     helmImage = 'lachlanevenson/k8s-helm:v2.7.2'
-
   You can also specify:
-
     mvnCommands = 'clean package'
     build = 'true' - any value other than 'true' == false
     deploy = 'true' - any value other than 'true' == false
@@ -28,7 +24,6 @@
     namespace = 'targetNamespace' - deploys into Kubernetes targetNamespace.
       Default is to deploy into Jenkins' namespace.
     libertyLicenseJarName - override for Pipeline.LibertyLicenseJar.Name
-
 -------------------------*/
 
 import com.cloudbees.groovy.cps.NonCPS
@@ -53,15 +48,9 @@ def call(body) {
   def kubectl = (config.kubectlImage == null) ? 'ibmcom/k8s-kubectl:v1.8.3' : config.kubectlImage
   def helm = (config.helmImage == null) ? 'lachlanevenson/k8s-helm:v2.7.2' : config.helmImage
   def mvnCommands = (config.mvnCommands == null) ? 'clean package' : config.mvnCommands
-		
-  //def registry = (env.REGISTRY ?: "").trim()
-  //if (registry && !registry.endsWith('/')) registry = "${registry}/"
-  //def registrySecret = (env.REGISTRY_SECRET ?: "").trim()
-	
-  def registry = config.registry
+  def registry = (env.REGISTRY ?: "").trim()
   if (registry && !registry.endsWith('/')) registry = "${registry}/"
-  def registrySecret = config.registrySecret	
-		
+  def registrySecret = (env.REGISTRY_SECRET ?: "").trim()
   def build = (config.build ?: env.BUILD ?: "true").toBoolean()
   def deploy = (config.deploy ?: env.DEPLOY ?: "true").toBoolean()
   def namespace = (config.namespace ?: env.NAMESPACE ?: "").trim()
@@ -70,10 +59,7 @@ def call(body) {
   // these options were all added later. Helm chart may not have the associated properties set.
   def test = (config.test ?: (env.TEST ?: "false").trim()).toLowerCase() == 'true'
   def debug = (config.debug ?: (env.DEBUG ?: "false").trim()).toLowerCase() == 'true'
-
-  //def helmSecret = (env.HELM_SECRET ?: "").trim()
-  def helmSecret = config.helmSecret
-	
+  def helmSecret = (env.HELM_SECRET ?: "").trim()
   // will need to check later if user provided chartFolder location
   def userSpecifiedChartFolder = config.chartFolder
   def chartFolder = userSpecifiedChartFolder ?: ((env.CHART_FOLDER ?: "").trim() ?: 'chart')
@@ -376,7 +362,6 @@ def createNamespace(String namespace, String registrySecret) {
 /*
   We have a (temporary) namespace that we want to grant ICP registry access to.
   String namespace: target namespace
-
   1. Port registrySecret into a temporary namespace
   2. Modify 'default' serviceaccount to use ported registrySecret.
 */
