@@ -59,7 +59,8 @@ def call(body) {
   // these options were all added later. Helm chart may not have the associated properties set.
   def test = (config.test ?: (env.TEST ?: "false").trim()).toLowerCase() == 'true'
   def debug = (config.debug ?: (env.DEBUG ?: "false").trim()).toLowerCase() == 'true'
-  def helmSecret = (env.HELM_SECRET ?: "").trim()
+  //def helmSecret = (env.HELM_SECRET ?: "").trim()
+	def helmSecret = config.helmSecret
   // will need to check later if user provided chartFolder location
   def userSpecifiedChartFolder = config.chartFolder
   def chartFolder = userSpecifiedChartFolder ?: ((env.CHART_FOLDER ?: "").trim() ?: 'chart')
