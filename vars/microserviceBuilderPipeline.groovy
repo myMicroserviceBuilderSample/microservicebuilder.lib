@@ -118,6 +118,7 @@ def call(body) {
         echo "checked out git commit ${gitCommit}"
       }
       
+      /*
       stage ('Test Helm'){
         container ('helm') {
             
@@ -135,6 +136,8 @@ def call(body) {
             //sh deployCommand
           }        
       }
+      */
+      
 
       def imageTag = null
       if (build) {
@@ -222,8 +225,8 @@ def call(body) {
           container ('helm') {
             
             //
-            //sh "/helm init --client-only --skip-refresh"            
-            sh "/helm init --service-account default --tiller-namespace tool --upgrade --force-upgrade"
+            sh "/helm init --client-only --skip-refresh"            
+            //sh "/helm init --service-account default --tiller-namespace tool --upgrade --force-upgrade"
             
             //
             //def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"            
@@ -277,8 +280,8 @@ def deployProject (String chartFolder, String registry, String image, String ima
     container ('helm') {
       
       //
-      //sh "/helm init --client-only --skip-refresh"
-      sh "/helm init --service-account default --tiller-namespace tool --upgrade --force-upgrade"
+      sh "/helm init --client-only --skip-refresh"
+      //sh "/helm init --service-account default --tiller-namespace tool --upgrade --force-upgrade"
 
       //
       //def deployCommand = "/helm upgrade --install --wait --values pipeline.yaml"
