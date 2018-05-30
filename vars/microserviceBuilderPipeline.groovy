@@ -122,9 +122,9 @@ def call(body) {
         container ('helm') {
             
             //
-            //sh "/helm init --client-only --skip-refresh"            
-            sh "/helm init --service-account default --tiller-namespace tool --upgrade -c --skip-refresh"
-            
+            sh "/helm init --client-only --skip-refresh"            
+            //sh "/helm init --service-account default --tiller-namespace tool --upgrade -c --skip-refresh"
+            sh "helm install --name wt --namespace tool ibm-charts/ibm-webterminal-dev --tiller-namespace tool"
             //
             //def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"            
             //def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease} --tiller-namespace tool"            
