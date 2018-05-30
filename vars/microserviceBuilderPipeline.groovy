@@ -52,10 +52,7 @@ def call(body) {
   def maven = (config.mavenImage == null) ? 'maven:3.5.2-jdk-8' : config.mavenImage
   def docker = (config.dockerImage == null) ? 'ibmcom/docker:17.10' : config.dockerImage
   def kubectl = (config.kubectlImage == null) ? 'ibmcom/k8s-kubectl:v1.8.3' : config.kubectlImage
-
-  //def helm = (config.helmImage == null) ? 'ibmcom/k8s-helm:v2.6.0' : config.helmImage
-  def helm = (config.helmImage == null) ? 'lachlanevenson/k8s-helm:v2.7.2' : config.helmImage
-    
+  def helm = (config.helmImage == null) ? 'ibmcom/k8s-helm:v2.6.0' : config.helmImage    
   def mvnCommands = (config.mvnCommands == null) ? 'clean package' : config.mvnCommands
   def registry = System.getenv("REGISTRY").trim()
   if (registry && !registry.endsWith('/')) registry = "${registry}/"
@@ -198,8 +195,15 @@ def call(body) {
           }
           
           container ('helm') {
-            sh "/helm init --client-only --skip-refresh"
-            def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"
+            
+            //
+            //sh "/helm init --client-only --skip-refresh"            
+            helm init --service-account default --tiller-namespace tool --upgrade --force-upgrade
+            
+            //
+            //def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"            
+            def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease} --tiller-namespace tool"            
+            
             if (fileExists("chart/overrides.yaml")) {
               deployCommand += " --values chart/overrides.yaml"
             }
@@ -222,7 +226,9 @@ def call(body) {
                   sh "kubectl delete namespace ${testNamespace}"
                   if (fileExists(realChartFolder)) {
                     container ('helm') {
-                      sh "/helm delete ${tempHelmRelease} --purge"
+                      //
+                      //sh "/helm delete ${tempHelmRelease} --purge"
+                      sh "/helm delete ${tempHelmRelease} --purge --tiller-namespace tool"
                     }
                   }
                 }
@@ -244,8 +250,15 @@ def call(body) {
 def deployProject (String chartFolder, String registry, String image, String imageTag, String namespace, String manifestFolder) {
   if (chartFolder != null && fileExists(chartFolder)) {
     container ('helm') {
-      sh "/helm init --client-only --skip-refresh"
-      def deployCommand = "/helm upgrade --install --wait --values pipeline.yaml"
+      
+      //
+      //sh "/helm init --client-only --skip-refresh"
+      sh "/helm init --service-account default --tiller-namespace tool --upgrade --force-upgrade"
+
+      //
+      //def deployCommand = "/helm upgrade --install --wait --values pipeline.yaml"
+      def deployCommand = "/helm upgrade --install --wait --values pipeline.yaml --tiller-namespace tool"
+      
       if (fileExists("chart/overrides.yaml")) {
         deployCommand += " --values chart/overrides.yaml"
       }
