@@ -198,7 +198,7 @@ def call(body) {
             
             //
             //sh "/helm init --client-only --skip-refresh"            
-            helm init --service-account default --tiller-namespace tool --upgrade --force-upgrade
+            sh "/helm init --service-account default --tiller-namespace tool --upgrade --force-upgrade"
             
             //
             //def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"            
