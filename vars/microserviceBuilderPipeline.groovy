@@ -1,5 +1,5 @@
 #!groovy
-// Copyright (c) IBM 2017,2018
+// Copyright (c) IBM 2017
 
 /*------------------------
   Typical usage:
@@ -7,23 +7,29 @@
   microserviceBuilderPipeline {
     image = 'microservice-test'
   }
+
   The following parameters may also be specified. Their defaults are shown below.
   These are the names of images to be downloaded from https://hub.docker.com/.
+
     mavenImage = 'maven:3.5.2-jdk-8'
-    dockerImage = 'ibmcom/docker:17.10'
+    dockerImage = 'docker'
     kubectlImage = 'ibmcom/k8s-kubectl:v1.8.3'
-    helmImage = 'lachlanevenson/k8s-helm:v2.7.2'
+    helmImage = 'ibmcom/k8s-helm:v2.6.0'
+
   You can also specify:
+
     mvnCommands = 'clean package'
     build = 'true' - any value other than 'true' == false
     deploy = 'true' - any value other than 'true' == false
     test = 'true' - `mvn verify` is run if this value is `true` and a pom.xml exists
     debug = 'false' - namespaces created during tests are deleted unless this value is set to 'true'
+    deployBranch = 'master' - only builds from this branch are deployed
     chartFolder = 'chart' - folder containing helm deployment chart
     manifestFolder = 'manifests' - folder containing kubectl deployment manifests
     namespace = 'targetNamespace' - deploys into Kubernetes targetNamespace.
       Default is to deploy into Jenkins' namespace.
     libertyLicenseJarName - override for Pipeline.LibertyLicenseJar.Name
+
 -------------------------*/
 
 import com.cloudbees.groovy.cps.NonCPS
@@ -46,34 +52,31 @@ def call(body) {
   def maven = (config.mavenImage == null) ? 'maven:3.5.2-jdk-8' : config.mavenImage
   def docker = (config.dockerImage == null) ? 'ibmcom/docker:17.10' : config.dockerImage
   def kubectl = (config.kubectlImage == null) ? 'ibmcom/k8s-kubectl:v1.8.3' : config.kubectlImage
-  def helm = (config.helmImage == null) ? 'lachlanevenson/k8s-helm:v2.7.2' : config.helmImage
+  def helm = (config.helmImage == null) ? 'ibmcom/k8s-helm:v2.6.0' : config.helmImage
   def mvnCommands = (config.mvnCommands == null) ? 'clean package' : config.mvnCommands
-  def registry = (env.REGISTRY ?: "").trim()
+  def registry = System.getenv("REGISTRY").trim()
   if (registry && !registry.endsWith('/')) registry = "${registry}/"
-  def registrySecret = (env.REGISTRY_SECRET ?: "").trim()
-  def build = (config.build ?: env.BUILD ?: "true").toBoolean()
-  def deploy = (config.deploy ?: env.DEPLOY ?: "true").toBoolean()
-  def namespace = (config.namespace ?: env.NAMESPACE ?: "").trim()
-  def serviceAccountName = (env.SERVICE_ACCOUNT_NAME ?: "default").trim()
+  def registrySecret = System.getenv("REGISTRY_SECRET").trim()
+  def build = (config.build ?: System.getenv ("BUILD")).toBoolean()
+  def deploy = (config.deploy ?: System.getenv ("DEPLOY")).toBoolean()
+  def namespace = config.namespace ?: (System.getenv("NAMESPACE") ?: "").trim()
 
   // these options were all added later. Helm chart may not have the associated properties set.
-  def test = (config.test ?: (env.TEST ?: "false").trim()).toLowerCase() == 'true'
-  def debug = (config.debug ?: (env.DEBUG ?: "false").trim()).toLowerCase() == 'true'
-  //def helmSecret = (env.HELM_SECRET ?: "").trim()
-	def helmSecret = config.helmSecret
+  def test = (config.test ?: (System.getenv ("TEST") ?: "false").trim()).toLowerCase() == 'true'
+  def debug = (config.debug ?: (System.getenv ("DEBUG") ?: "false").trim()).toLowerCase() == 'true'
+  def deployBranch = config.deployBranch ?: ((System.getenv("DEFAULT_DEPLOY_BRANCH") ?: "").trim() ?: 'master')
   // will need to check later if user provided chartFolder location
   def userSpecifiedChartFolder = config.chartFolder
-  def chartFolder = userSpecifiedChartFolder ?: ((env.CHART_FOLDER ?: "").trim() ?: 'chart')
-  def manifestFolder = config.manifestFolder ?: ((env.MANIFEST_FOLDER ?: "").trim() ?: 'manifests')
-  def libertyLicenseJarBaseUrl = (env.LIBERTY_LICENSE_JAR_BASE_URL ?: "").trim()
-  def libertyLicenseJarName = config.libertyLicenseJarName ?: (env.LIBERTY_LICENSE_JAR_NAME ?: "").trim()
-  def alwaysPullImage = (env.ALWAYS_PULL_IMAGE == null) ? true : env.ALWAYS_PULL_IMAGE.toBoolean()
-  def mavenSettingsConfigMap = env.MAVEN_SETTINGS_CONFIG_MAP?.trim()
-  def helmTlsOptions = " --tls --tls-ca-cert=/msb_helm_sec/ca.pem --tls-cert=/msb_helm_sec/cert.pem --tls-key=/msb_helm_sec/key.pem " 
+  def chartFolder = userSpecifiedChartFolder ?: ((System.getenv("CHART_FOLDER") ?: "").trim() ?: 'chart')
+  def manifestFolder = config.manifestFolder ?: ((System.getenv("MANIFEST_FOLDER") ?: "").trim() ?: 'manifests')
+  def libertyLicenseJarBaseUrl = (System.getenv("LIBERTY_LICENSE_JAR_BASE_URL") ?: "").trim()
+  def libertyLicenseJarName = config.libertyLicenseJarName ?: (System.getenv("LIBERTY_LICENSE_JAR_NAME") ?: "").trim()
+  def alwaysPullImage = (System.getenv("ALWAYS_PULL_IMAGE") == null) ? true : System.getenv("ALWAYS_PULL_IMAGE").toBoolean()
+  def mavenSettingsConfigMap = System.getenv("MAVEN_SETTINGS_CONFIG_MAP")?.trim() 
 
   print "microserviceBuilderPipeline: registry=${registry} registrySecret=${registrySecret} build=${build} \
-  deploy=${deploy} test=${test} debug=${debug} namespace=${namespace} \
-  chartFolder=${chartFolder} manifestFolder=${manifestFolder} alwaysPullImage=${alwaysPullImage} serviceAccountName=${serviceAccountName}"
+  deploy=${deploy} deployBranch=${deployBranch} test=${test} debug=${debug} namespace=${namespace} \
+  chartFolder=${chartFolder} manifestFolder=${manifestFolder} alwaysPullImage=${alwaysPullImage}"
 
   // We won't be able to get hold of registrySecret if Jenkins is running in a non-default namespace that is not the deployment namespace.
   // In that case we'll need the registrySecret to have been ported over, perhaps during pipeline install.
@@ -86,16 +89,11 @@ def call(body) {
   if (mavenSettingsConfigMap) {
     volumes += configMapVolume(configMapName: mavenSettingsConfigMap, mountPath: '/msb_mvn_cfg')
   }
-  if (helmSecret) {
-    volumes += secretVolume(secretName: helmSecret, mountPath: '/msb_helm_sec')
-  }
   print "microserviceBuilderPipeline: volumes = ${volumes}"
-  print "microserviceBuilderPipeline: helmSecret: ${helmSecret}"
 
   podTemplate(
     label: 'msbPod',
     inheritFrom: 'default',
-    serviceAccount: serviceAccountName,
     containers: [
       containerTemplate(name: 'maven', image: maven, ttyEnabled: true, command: 'cat'),
       containerTemplate(name: 'docker', image: docker, command: 'cat', ttyEnabled: true,
@@ -117,7 +115,6 @@ def call(body) {
       }
 
       def imageTag = null
-      def helmInitialized = false // Lazily initialize Helm but only once
       if (build) {
         if (fileExists('pom.xml')) {
           stage ('Maven Build') {
@@ -131,43 +128,7 @@ def call(body) {
             }
           }
         }
-        
         if (fileExists('Dockerfile')) {
-          if (fileExists('Package.swift')) {          
-            echo "Detected Swift project with a Dockerfile..."
-          
-            echo "Checking for runtime image..."
-            // Remember that grep returns 0 if it's there, 1 if not
-            
-            def containsRuntimeImage = sh(returnStatus: true, script: "grep 'ibmcom/swift-ubuntu-runtime' Dockerfile")        
-            echo "containsRuntimeImage: ${containsRuntimeImage}"
-            
-            echo "Checking for a build command..."
-            def containsBuildCommand = sh(returnStatus: true, script: "grep 'swift build' Dockerfile")
-            echo "containsBuildCommand: ${containsBuildCommand}"
-            
-            echo "Checking for microclimate.override=false..."          
-            // Don't do anything with the Dockerfile if we detect this string
-            def hasOverride = sh(returnStatus: true, script: "grep 'microclimate.override=false' Dockerfile")
-            echo "hasOverride: ${hasOverride}"
-          
-            // 0 = true, 1 = false! Would be good to use .toBoolean and make this easier to read
-            // Modify if there's a runtime image in the FROM, there's no swift build command, there's no override=false
-            if (containsRuntimeImage == 0 && containsBuildCommand == 1 && hasOverride == 1) {              
-              echo "Modifying the Dockerfile as the Microclimate pipeline has detected the swift-ubuntu-runtime image and no presence of a swift build command in the Dockerfile! Disable this behaviour with microclimate.override=false anywhere in your Dockerfile"                            
-              // Use the dev image so we can build
-              sh "sed -i 's|FROM ibmcom/swift-ubuntu-runtime|FROM ibmcom/swift-ubuntu|g' Dockerfile"              
-              // Add the build command after "COPY . /swift-project"
-              sh "sed -i '\\/COPY . \\/swift-project/a RUN cd \\/swift-project && swift build -c release' Dockerfile"
-              // Just run the project they've built: replace their cmd with a simpler one
-              sh "sed -i 's|cd /swift-project \\&\\& .build-ubuntu/release.*|cd /swift-project \\&\\& swift run\" ]|g' Dockerfile"
-              
-              def fileContents = sh(returnStdout: true, script: "cat Dockerfile")
-              print "Modified Dockerfile is as follows..."
-              print "${fileContents}"       
-            }
-          }
-          
           stage ('Docker Build') {
             container ('docker') {
               imageTag = gitCommit
@@ -194,8 +155,6 @@ def call(body) {
               buildCommand += " ."
               if (registrySecret) {
                 sh "ln -s /msb_reg_sec/.dockercfg /home/jenkins/.dockercfg"
-                sh "mkdir /home/jenkins/.docker"
-                sh "ln -s /msb_reg_sec/.dockerconfigjson /home/jenkins/.docker/config.json"
               }
               sh buildCommand
               if (registry) {
@@ -234,20 +193,12 @@ def call(body) {
               giveRegistryAccessToNamespace (testNamespace, registrySecret)
             }
           }
-
-          if (!helmInitialized) {
-            initalizeHelm ()
-            helmInitialized = true
-          }
           
           container ('helm') {
-            def deployCommand = "helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"
+            sh "/helm init --client-only --skip-refresh"
+            def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"
             if (fileExists("chart/overrides.yaml")) {
               deployCommand += " --values chart/overrides.yaml"
-            }
-	    if (helmSecret) {
-              echo "adding --tls"
-              deployCommand += helmTlsOptions
             }
             sh deployCommand
           }
@@ -268,12 +219,7 @@ def call(body) {
                   sh "kubectl delete namespace ${testNamespace}"
                   if (fileExists(realChartFolder)) {
                     container ('helm') {
-                      def deleteCommand = "helm delete ${tempHelmRelease} --purge"
-                      if (helmSecret) {
-                        echo "adding --tls"
-                        deleteCommand += helmTlsOptions
-                      }
-		      sh deleteCommand
+                      sh "/helm delete ${tempHelmRelease} --purge"
                     }
                   }
                 }
@@ -283,52 +229,24 @@ def call(body) {
         }
       }
 
-      if (deploy && env.BRANCH_NAME == getDeployBranch()) {
+      if (deploy && env.BRANCH_NAME == deployBranch) {
         stage ('Deploy') {
-          if (!helmInitialized) {
-            initalizeHelm ()
-            helmInitialized = true
-          }
-          deployProject (realChartFolder, registry, image, imageTag, namespace, manifestFolder, registrySecret, helmSecret, helmTlsOptions)
+          deployProject (realChartFolder, registry, image, imageTag, namespace, manifestFolder)
         }
       }
     }
   }
 }
 
-def getDeployBranch () {
-  def deployBranch
-  container ('kubectl') {
-    def array = env.JOB_NAME.split("/")
-    def projectNamespace = array[0]
-    def projectName = array[1]
-    deployBranch = sh returnStdout: true, script: "kubectl get project ${projectName} --namespace=${projectNamespace} -o go-template='{{.spec.deployBranch}}'"
-    print "Deploy branch for project ${projectName} in namespace ${projectNamespace} is ${deployBranch}"
-  }
-  return deployBranch
-}
-
-def initalizeHelm () {
-  container ('helm') {
-    sh "helm init --skip-refresh --client-only"     
-  }
-}
-
-def deployProject (String chartFolder, String registry, String image, String imageTag, String namespace, String manifestFolder, String registrySecret, String helmSecret, String helmTlsOptions) {
+def deployProject (String chartFolder, String registry, String image, String imageTag, String namespace, String manifestFolder) {
   if (chartFolder != null && fileExists(chartFolder)) {
     container ('helm') {
-      def deployCommand = "helm upgrade --install --wait --values pipeline.yaml"
+      sh "/helm init --client-only --skip-refresh"
+      def deployCommand = "/helm upgrade --install --wait --values pipeline.yaml"
       if (fileExists("chart/overrides.yaml")) {
         deployCommand += " --values chart/overrides.yaml"
       }
-      if (namespace) {
-        deployCommand += " --namespace ${namespace}"
-        createNamespace(namespace, registrySecret)   
-      }
-      if (helmSecret) {
-        echo "adding --tls"
-        deployCommand += helmTlsOptions
-      }
+      if (namespace) deployCommand += " --namespace ${namespace}"
       def releaseName = (env.BRANCH_NAME == "master") ? "${image}" : "${image}-${env.BRANCH_NAME}"
       deployCommand += " ${releaseName} ${chartFolder}"
       sh deployCommand
@@ -336,26 +254,8 @@ def deployProject (String chartFolder, String registry, String image, String ima
   } else if (fileExists(manifestFolder)) {
     container ('kubectl') {
       def deployCommand = "kubectl apply -f ${manifestFolder}"
-      if (namespace) {
-        createNamespace(namespace, registrySecret)
-        deployCommand += " --namespace ${namespace}"
-      }
+      if (namespace) deployCommand += " --namespace ${namespace}"
       sh deployCommand
-    }
-  }
-}
-
-/*
-  Create target namespace and give access to regsitry
-*/
-def createNamespace(String namespace, String registrySecret) {
-  container ('kubectl') {
-    ns_exists = sh(returnStatus: true, script: "kubectl get namespace ${namespace}")
-    if (ns_exists != 0) {
-      sh "kubectl create namespace ${namespace}"
-      if (registrySecret) {
-        giveRegistryAccessToNamespace (namespace, registrySecret)
-      }
     }
   }
 }
@@ -363,6 +263,7 @@ def createNamespace(String namespace, String registrySecret) {
 /*
   We have a (temporary) namespace that we want to grant ICP registry access to.
   String namespace: target namespace
+
   1. Port registrySecret into a temporary namespace
   2. Modify 'default' serviceaccount to use ported registrySecret.
 */
