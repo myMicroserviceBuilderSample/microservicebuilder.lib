@@ -117,6 +117,24 @@ def call(body) {
         gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
         echo "checked out git commit ${gitCommit}"
       }
+      
+      stage ('Test Helm'){
+        container ('helm') {
+            
+            //
+            //sh "/helm init --client-only --skip-refresh"            
+            sh "/helm init --service-account default --tiller-namespace tool --upgrade"
+            
+            //
+            //def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease}"            
+            //def deployCommand = "/helm install ${realChartFolder} --wait --set test=true --values pipeline.yaml --namespace ${testNamespace} --name ${tempHelmRelease} --tiller-namespace tool"            
+            
+            //if (fileExists("chart/overrides.yaml")) {
+            //  deployCommand += " --values chart/overrides.yaml"
+            //}
+            //sh deployCommand
+          }        
+      }
 
       def imageTag = null
       if (build) {
