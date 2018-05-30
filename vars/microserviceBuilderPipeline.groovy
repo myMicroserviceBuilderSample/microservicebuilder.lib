@@ -158,6 +158,9 @@ def call(body) {
               }
               sh buildCommand
               if (registry) {
+                //
+                sh "docker login mycluster.icp:8500 -u ${reguser} -p ${regpw}"
+                
                 sh "docker tag ${image}:${imageTag} ${registry}${image}:${imageTag}"
                 sh "docker push ${registry}${image}:${imageTag}"
               }
